@@ -82,77 +82,7 @@ wait
 
 
 
-
-
-#### 3. Advanced Training Options
-
-```bash
-# Train with custom parameters
-python main.py --mode train \
-    --collect-data \
-    --symbols BTC-USD ETH-USD ADA-USD DOT-USD LINK-USD \
-    --sequence-length 45 \
-    --epochs 150 \
-    --batch-size 64 \
-    --learning-rate 0.0005
-```
-
-#### 4. GPyTorch Enhanced Training
-
-```bash
-# Train hybrid LSTM-GP model with uncertainty quantification
-python main.py --mode train-gp --model-type hybrid \
-    --collect-data \
-    --symbols BTC-USD ETH-USD ADA-USD DOT-USD \
-    --epochs 100 \
-    --gp-epochs 50
-
-# Train pure Multi-Task Gaussian Process
-python main.py --mode train-gp --model-type gp \
-    --symbols BTC-USD ETH-USD ADA-USD \
-    --num-inducing 150 \
-    --gp-learning-rate 0.01
-
-# Direct GPyTorch script usage
-cd src
-python train_with_gp.py --model-type hybrid --collect-data --symbols BTC-USD ETH-USD
-```
-
-#### 5. Enhanced Data Collection with Binance API
-
-```bash
-# High-frequency data collection (1-minute intervals)
-python main.py --mode collect --data-source binance --interval 1m --symbols BTC-USD ETH-USD --period 7d
-
-# Hourly data for more detailed volatility analysis
-python main.py --mode collect --data-source binance --interval 1h --symbols BTC-USD ETH-USD SOL-USD --period 30d
-
-# Compare data sources
-python src/unified_data_collector.py
-
-# Use Binance API with authentication for higher rate limits
-python main.py --mode collect --data-source binance --binance-api-key YOUR_API_KEY --symbols BTC-USD ETH-USD
-
-# Direct Binance data collector usage
-cd src
-python binance_data_collector.py
-```
-
-### Direct Script Usage
-
-You can also run the individual scripts directly:
-
-```bash
-# Data collection
-cd src
-python data_collector.py
-
-# Full training pipeline
-cd src
-python train_model.py --collect-data --symbols BTC-USD ETH-USD ADA-USD
-```
-
-## 🎛️ Configuration Options
+##  Configuration Options
 
 ### Data Collection Parameters
 
@@ -186,7 +116,7 @@ python train_model.py --collect-data --symbols BTC-USD ETH-USD ADA-USD
 - `--lstm-hidden-size`: LSTM hidden size in hybrid model (default: 64)
 - `--gp-init-samples`: Samples for GP initialization (default: 1000)
 
-## 📈 Model Architecture
+##  Model Architecture
 
 ### LSTM Model
 The LSTM model includes:
@@ -218,7 +148,7 @@ The LSTM model includes:
 - **Lagged Features**: Previous values for temporal patterns
 - **Ratios and Normalized Values**: Price ratios and volume ratios
 
-## 📊 Output and Results
+##  Output and Results
 
 After training, the model generates:
 
@@ -229,37 +159,6 @@ After training, the model generates:
 
 Results are saved in the `models/` directory with timestamps.
 
-## 🔬 Supported Cryptocurrencies
-
-The system supports any cryptocurrency symbol available on Yahoo Finance:
-
-- **Major Cryptocurrencies**: BTC-USD, ETH-USD, ADA-USD, DOT-USD
-- **DeFi Tokens**: LINK-USD, UNI-USD, SUSHI-USD
-- **Layer 1s**: SOL-USD, AVAX-USD, ATOM-USD
-- **And many more**: Any symbol with `-USD` suffix
-
-## 🧪 Model Performance
-
-The model predicts cryptocurrency volatility with:
-
-- **Multi-step ahead prediction capability**
-- **Cross-cryptocurrency learning**
-- **Technical indicator integration**
-- **Robust evaluation metrics**
-
-Performance metrics include MSE loss and visualization of predictions vs actual values.
-
-## 🛠️ Development
-
-### Adding New Features
-
-1. **New Technical Indicators**: Add to `data_collector.py`
-2. **Model Architectures**: Modify `lstm_model.py`
-3. **Data Sources**: Extend `data_collector.py`
-
-### Running Tests
-
-If you're thinking of the tests, just go to the tests/ folder. I think I added a test for each function. If not please contact me or do a Pull Request.
 
 
 ## 🤝 Contributing
