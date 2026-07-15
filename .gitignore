@@ -1,0 +1,6 @@
+*.pyc
+_non_commit_garbage/
+*.pt
+*.parquet
+*.pbs
+*.csv
