@@ -10,7 +10,6 @@ I am not very interested in the crypto usage. Please use things are you please.
 
 ##  Features
 
-- **Multiple Data Sources**: Binance API (preferred) and yfinance (fallback)
 - **Enhanced Data Quality**: Real-time, high-frequency data from the largest crypto exchange
 - **Automated Data Collection**: Fetch cryptocurrency data with superior accuracy
 - **Feature Engineering**: Calculate technical indicators and volatility measures
@@ -86,7 +85,6 @@ wait
 
 ### Data Collection Parameters
 
-- `--data-source`: Data source to use ('binance', 'yfinance', 'auto') (default: 'auto')
 - `--symbols`: Cryptocurrency symbols (e.g., BTC-USD, ETH-USD)
 - `--period`: Data collection period for yfinance (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
 - `--interval`: Data interval for Binance API ('1m', '5m', '15m', '1h', '4h', '1d')
