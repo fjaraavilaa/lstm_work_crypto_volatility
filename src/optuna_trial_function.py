@@ -11,7 +11,7 @@ import logging
 import torch
 from gpytorch.kernels import RBFKernel
 from src.gpytorch_model import LatentSVGP, DeepKernelSVGP
-from binance_data_collector import BinanceDataCollector
+from src.binance_data_collector import BinanceDataCollector
 from src.data_preprocessor import DataPreprocessor
 from src.deep_kernel import lstm_extractor_same_size_layers
 from src.training_functions import train_with_gp
@@ -28,8 +28,8 @@ parser.add_argument('--symbols', nargs='+', default=['BTC-USD'], help='List of s
 parser.add_argument('--input_study_features', nargs='+', default=['Returns'], help='List of features to use in the study')
 parser.add_argument('--device' , type=str, default='cuda', help='Device to use for training (e.g., "cuda" or "cpu")')
 
-DATES_START_STUDY = config_dates['train'][0]
-DATES_END_STUDY = config_dates['test'][1]
+DATES_START_STUDY = config_dates['train']['start']
+DATES_END_STUDY = config_dates['test']['end']
 SYMBOLS = parser.parse_args().symbols
 INPUT_STUDY_FEATURES = parser.parse_args().input_study_features
 DEVICE = parser.parse_args().device
@@ -50,7 +50,7 @@ def objective(trial):
                                                   start_date = DATES_START_STUDY, end_date = DATES_END_STUDY)
     preprocessor = DataPreprocessor()
     processed_data = preprocessor.prepare_features(crypto_raw_data)
-    processed_data = preprocessor.scale_features(processed_data, features = INPUT_STUDY_FEATURES)
+    processed_data = preprocessor.scale_features(processed_data.set_index(['Date', 'Symbol']), scaler = 'minmax')
     # Build training and validation splits here from the API-fetched dataframe.
     lstm_data = preprocessor.prepare_lstm_data(processed_data.reset_index(), symbols = SYMBOLS,
                                                sequence_length = 5,
@@ -73,6 +73,7 @@ def objective(trial):
 
     feature_extractor = lstm_extractor_same_size_layers(
         input_size = lstm_data['X_train'].shape[2],
+        output_size = 1,
         hidden_size = lstm_hidden_size,
         num_layers = num_layers,
         dropout = dropout_sug
@@ -86,14 +87,14 @@ def objective(trial):
     )
     compiled_model = DeepKernelSVGP(
         feature_extractor = feature_extractor,
-        inferential_model = inferential_model
+        inferential_model = inferential_model,
         )
     likelihood = GaussianLikelihood()
 
     optimizer = torch.optim.Adam([
         {'params': compiled_model.feature_extractor.parameters()},
-        {'params': compiled_model.inferential_model.hyperparameters()},
-        {'params': compiled_model.inferential_model.variational_parameters()},
+        {'params': compiled_model.inferential_process.hyperparameters()},
+        {'params': compiled_model.inferential_process.variational_parameters()},
         {'params': likelihood.parameters()},
     ], lr=0.01)
     

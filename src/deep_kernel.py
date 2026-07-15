@@ -8,7 +8,6 @@ author: @fjaraavila
 import torch
 import gpytorch
 from gpytorch.kernels import Kernel
-from gpytorch.lazy import LazyTensor
 
 class lstm_extractor_same_size_layers(torch.nn.Module): 
     def __init__(self, input_size: int, hidden_size: int, num_layers: int, output_size: int, dropout: float = 0.00):

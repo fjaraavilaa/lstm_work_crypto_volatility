@@ -4,3 +4,4 @@ _non_commit_garbage/
 *.parquet
 *.pbs
 *.csv
+*.err

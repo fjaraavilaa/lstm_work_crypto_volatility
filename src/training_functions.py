@@ -58,7 +58,8 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
                   val_data: TensorDataset, batch_size: int, epochs: int,
                   likelihood: likelihood, optimizer: optim.Optimizer,
                   min_delta: float, patience: int, monitor: str = 'val',
-                  save_suffix: str = '', save_metrics: bool = False) -> LatentSVGP:
+                  save_suffix: str = '', save_metrics: bool = False, 
+                  device: torch.device = torch.device('cpu')) -> LatentSVGP:
     """This funtions trains an SVGP model 
 
     Args:
@@ -86,7 +87,7 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
     train_loader = DataLoader(train_data, batch_size, shuffle = False)
     val_loader = DataLoader(val_data, batch_size, shuffle = False) if val_data is not None else None
     mll = VariationalELBO(
-        likelihood, model.inferential_process, num_data = len(train_data)
+        likelihood.to(device), model.inferential_process.to(device), num_data = len(train_data)
     )
 
     model.train()
@@ -106,8 +107,8 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
             logging.info(f"Epoch {epoch + 1}/{epochs}, Batch Loss: {mll(model(x_batch), y_batch).item()}")
             logging.info(f"Epoch {epoch + 1}/{epochs}, Input shape: {x_batch.shape}, Target shape: {y_batch.shape}")
             optimizer.zero_grad()
-            outputs = model(x_batch)
-            loss = -mll(outputs, y_batch)
+            outputs = model(x_batch.to(device))
+            loss = -mll(outputs, y_batch.to(device)).to(device)
             loss.backward()
             optimizer.step()
             batch_losses.append(loss.item())
@@ -117,7 +118,7 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
         likelihood.eval()
         if val_loader is not None:
             with torch.no_grad():
-                val_loss = sum(-mll(model(x_batch), y_batch) for x_batch, y_batch in val_loader) / len(val_loader)
+                val_loss = sum(-mll(model(x_batch.to(device)), y_batch.to(device)) for x_batch, y_batch in val_loader) / len(val_loader)
             val_losses.append(val_loss.item())
         
         
