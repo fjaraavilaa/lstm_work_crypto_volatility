@@ -307,6 +307,8 @@ class DataPreprocessor:
         if len(symbol_data) < sequence_length + prediction_horizon:
             return np.array([]), np.array([]), np.array([])
         
+
+        logging.info(f'Using the following {target_col}')
         # Get features, target, and dates
         if input_study_features is None:
             X_data = symbol_data[self.feature_columns].values
@@ -519,7 +521,8 @@ class DataPreprocessor:
                     "your DataFrame before prepare_lstm_data, or scaling "
                     "X_train/X_val/X_test yourself (fit on X_train only)."
                 )
- 
+
+        logging.info(f"Target Column is {target_col}")
         logging.info(" LSTM matrix transformation complete")
         logging.info(f"   X_train: {X_train.shape}, y_train: {y_train.shape}")
         if len(dates_train) > 0:

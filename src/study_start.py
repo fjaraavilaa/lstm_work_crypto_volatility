@@ -3,7 +3,7 @@ import os
 import optuna
 
 
-storage_name = "sqlite:///mydb_lstm_crypto_1min.db"
+storage_name = "sqlite:///mydb_lstm_crypto_1min_w_lag.db"
 
 
 study = optuna.create_study(

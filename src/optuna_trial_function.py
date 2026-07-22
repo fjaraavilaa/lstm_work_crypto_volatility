@@ -46,14 +46,18 @@ def objective(trial):
     #start the data collector
     collector = BinanceDataCollector()
     interval = '1m'
-    crypto_raw_data = collector.fetch_crypto_data(symbols = SYMBOLS, interval = interval, 
-                                                  start_date = DATES_START_STUDY, end_date = DATES_END_STUDY)
+    crypto_raw_data = collector.fetch_crypto_data(symbols = SYMBOLS, 
+                                                  interval = interval, 
+                                                  start_date = DATES_START_STUDY, 
+                                                  end_date = DATES_END_STUDY)
     preprocessor = DataPreprocessor()
-    processed_data = preprocessor.prepare_features(crypto_raw_data)
-    processed_data = preprocessor.scale_features(processed_data.set_index(['Date', 'Symbol']), scaler = 'minmax')
+    processed_data = preprocessor.prepare_features(crypto_raw_data, target_col='Returns', drop_bad_values = False)
+
+    processed_data = preprocessor.scale_features(processed_data.set_index(['Date', 'Symbol'])[INPUT_STUDY_FEATURES].dropna(), 
+                                                 scaler = 'minmax')
     # Build training and validation splits here from the API-fetched dataframe.
     lstm_data = preprocessor.prepare_lstm_data(processed_data.reset_index(), symbols = SYMBOLS,
-                                               sequence_length = 5,
+                                               sequence_length = lstm_shape_lag,
                                                target_col = 'Returns',
                                                prediction_horizon=1,
                                                date_splits =  {
@@ -63,6 +67,8 @@ def objective(trial):
                                                    },
                                                input_study_features = INPUT_STUDY_FEATURES
                                                )
+    
+    logging.info(f'LSTM matrix is of shape {lstm_data['X_train'].shape}')
     
     del crypto_raw_data
     del processed_data
@@ -115,17 +121,17 @@ def objective(trial):
         epochs=10000,
         likelihood=likelihood,
         optimizer=optimizer,
-        min_delta=1e-4,
+        min_delta=1e-5,
         patience=5,
         monitor='val',
         save_metrics=False
     )
-    return trained_model[1].item()  # Return the validation loss for Optuna to minimize
+    return trained_model[2]['mae_val'] # Return the validation loss for Optuna to minimize
 
-storage_name = "sqlite:///mydb_lstm_crypto_1min.db"
+storage_name = "sqlite:///mydb_lstm_crypto_1min_w_lag.db"
 
 if __name__ == "__main__":
     study = optuna.load_study(
         study_name="lstm_crypto_study_only_kernel", storage=storage_name
     )
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=100)

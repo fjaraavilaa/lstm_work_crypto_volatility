@@ -104,8 +104,8 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
     for epoch in range(epochs):
         batch_losses = []
         for x_batch, y_batch in train_loader:
-            logging.info(f"Epoch {epoch + 1}/{epochs}, Batch Loss: {mll(model(x_batch), y_batch).item()}")
-            logging.info(f"Epoch {epoch + 1}/{epochs}, Input shape: {x_batch.shape}, Target shape: {y_batch.shape}")
+            #logging.info(f"Epoch {epoch + 1}/{epochs}, Batch Loss: {mll(model(x_batch), y_batch).item()}")
+            #logging.info(f"Epoch {epoch + 1}/{epochs}, Input shape: {x_batch.shape}, Target shape: {y_batch.shape}")
             optimizer.zero_grad()
             outputs = model(x_batch.to(device))
             loss = -mll(outputs, y_batch.to(device)).to(device)
@@ -113,6 +113,7 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
             optimizer.step()
             batch_losses.append(loss.item())
         train_loss = sum(batch_losses) / len(batch_losses)
+        logging.info(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.4f}")
         train_losses.append(train_loss)
         model.eval()
         likelihood.eval()
@@ -141,6 +142,14 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
  
         if current_metric < best_val - min_delta:
             best_val = current_metric
+            best_metrics = {
+                "epoch": epoch,
+                "best_elbo": current_metric.item() if torch.is_tensor(current_metric) else current_metric,
+                "mse_train": mse_train_local,
+                "mae_train": mae_train_local,
+                "mse_val": mse_val_local if val_loader is not None else None,
+                "mae_val": mae_val_local if val_loader is not None else None,
+                }
             best_state = {
                 "model": model.state_dict(),
                 "likelihood": likelihood.state_dict()
@@ -157,17 +166,17 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
             break
         logging.info(f"Validation Loss: {val_loss.item()}")
 
-    if save_metrics:
-        metrics = {
-            "train_losses": train_losses,
-            "val_losses": val_losses,
-            "mse_losses_train": mse_losses,
-            "mae_losses_train": mae_losses,
-            "mse_losses_val": mse_losses_val,
-            "mae_losses_val": mae_losses_val
-        }
-        with open(f"training_metrics_{save_suffix}.json", "w") as f:
-            json.dump(metrics, f)
+    
+    metrics = {
+        "train_losses": train_losses,
+        "val_losses": val_losses,
+        "mse_losses_train": mse_losses,
+        "mae_losses_train": mae_losses,
+        "mse_losses_val": mse_losses_val,
+        "mae_losses_val": mae_losses_val
+    }
+    with open(f"training_metrics_{save_suffix}.json", "w") as f:
+        json.dump(metrics, f)
 
-    return (model, val_loss)
+    return (model, metrics, best_metrics)
 
