@@ -55,7 +55,7 @@ pip install -r requirements.txt
 ### 2. Verify Installation
 
 ```bash
-python -c "import torch; import pandas; import yfinance; print('✅ All dependencies installed successfully!')"
+python -c "import torch; import pandas; print('All dependencies installed successfully!')"
 ```
 
 ##  Usage
