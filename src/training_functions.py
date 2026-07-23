@@ -178,5 +178,5 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
     with open(f"training_metrics_{save_suffix}.json", "w") as f:
         json.dump(metrics, f)
 
-    return (model, metrics, best_metrics)
+    return (model, likelihood, metrics, best_metrics)
 
