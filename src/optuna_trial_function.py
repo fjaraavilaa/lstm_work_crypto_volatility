@@ -37,10 +37,10 @@ DEVICE = parser.parse_args().device
 
 def objective(trial):
     #Define hyperparameters to optimize
-    lstm_shape_lag = trial.suggest_int('lstm_shape_lag', 10, 100)
-    lstm_hidden_size = trial.suggest_int('lstm_hidden_size', 5, 20)
+    lstm_shape_lag = trial.suggest_int('lstm_shape_lag', 5, 100)
+    lstm_hidden_size = trial.suggest_int('lstm_hidden_size', 3, 20)
     batch_size = trial.suggest_int('batch_size', 16, 2500)
-    num_layers = trial.suggest_int('num_layers', 1, 5)
+    num_layers = trial.suggest_int('num_layers', 1, 20)
     dropout_sug = trial.suggest_float('dropout', 0.0, 0.5)
 
     #start the data collector
@@ -113,7 +113,7 @@ def objective(trial):
         torch.from_numpy(lstm_data['X_val']).float(),
         torch.from_numpy(lstm_data['y_val']).float()
     )
-    trained_model = train_with_gp(
+    trained_model, likelihood, metrics, best_metrics = train_with_gp(
         compiled_model,
         train_data,
         val_data,
@@ -126,7 +126,7 @@ def objective(trial):
         monitor='val',
         save_metrics=False
     )
-    return trained_model[2]['mae_val'] # Return the validation loss for Optuna to minimize
+    return best_metrics['mae_val'] # Return the validation loss for Optuna to minimize
 
 storage_name = "sqlite:///mydb_lstm_crypto_1min_w_lag.db"
 
@@ -134,4 +134,4 @@ if __name__ == "__main__":
     study = optuna.load_study(
         study_name="lstm_crypto_study_only_kernel", storage=storage_name
     )
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=200)

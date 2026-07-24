@@ -1,4 +1,4 @@
-# LSTM Cryptocurrency Volatility Prediction
+# LSTM Cryptocurrency Prediction with DKL
 
 This is a Deep Kernel Learning project I decided to do after my PhD. I was just annoyed at the fact that I never found GPs used with LSTMs. Might sound a bit stubborn but I thought it could help someone (like me).
 
@@ -6,7 +6,7 @@ This is a Deep Kernel Learning project I decided to do after my PhD. I was just 
 
 This project implements an end-to-end pipeline for cryptocurrency Returns prediction using Long Short-Term Memory (LSTM) neural networks. It includes data collection, feature engineering, model training, and prediction capabilities.
 
-I am not very interested in the crypto usage. Please use things are you please.
+I am not very interested in the crypto usage. Please use things as you please.
 
 ##  Features
 
@@ -29,7 +29,7 @@ I am not very interested in the crypto usage. Please use things are you please.
 
 All these came from Claude. I am just doing a proof of concept. I do not care too much about this.
 
-## 📁 Project Structure
+##  Project Structure
 
 It's still a bit messy. Consider it a to do.
 

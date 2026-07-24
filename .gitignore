@@ -5,3 +5,8 @@ _non_commit_garbage/
 *.pbs
 *.csv
 *.err
+*.out
+*.db
+_plots/
+.python-version
+*.png

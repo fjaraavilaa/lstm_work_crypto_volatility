@@ -129,7 +129,7 @@ def main():
                 save_metrics=True
             )
             with torch.no_grad():
-                prediction_mean, prediction_variance = predict_with_trained_model(trained_model, likelihood, lstm_data['X_val'])
+                prediction_mean, prediction_variance = predict_with_trained_model(trained_model, likelihood, torch.from_numpy(lstm_data['X_val']).float())
             
             predictions = create_df_from_predictions(prediction_mean.numpy(), 
                                                      prediction_variance.numpy(), 
@@ -139,9 +139,9 @@ def main():
         else:
             train_data = torch.utils.data.TensorDataset(
                 torch.cat([torch.from_numpy(lstm_data['X_train']).float(), 
-                           torch.from_numpy(lstm_data['X_val'])]),
+                           torch.from_numpy(lstm_data['X_val']).float()]),
                            torch.cat([torch.from_numpy(lstm_data['y_train']).float(),
-                                      torch.from_numpy(lstm_data['y_val'])]),
+                                      torch.from_numpy(lstm_data['y_val']).float()]),
                                       )        
             trained_model, likelihood, metrics, best_metrics = train_with_gp(
                 compiled_model,
@@ -158,7 +158,9 @@ def main():
                 save_metrics=True
             )
         with torch.no_grad():
-            prediction_mean, prediction_variance = predict_with_trained_model(trained_model, likelihood, lstm_data['X_test'])
+            prediction_mean, prediction_variance = predict_with_trained_model(trained_model, 
+                                                                              likelihood, 
+                                                                              torch.from_numpy(lstm_data['X_test']).float())
         
         predictions = create_df_from_predictions(prediction_mean.numpy(), 
                                                  prediction_variance.numpy(), 
@@ -169,7 +171,7 @@ def main():
         with torch.no_grad():
             prediction_mean, prediction_variance = predict_with_trained_model(trained_model['model'], 
                                                                               trained_model['likelihood'],
-                                                                              lstm_data['X_test'])
+                                                                              torch.from_numpy(lstm_data['X_test']).float())
         predictions = create_df_from_predictions(prediction_mean.numpy(), 
                                                  prediction_variance.numpy(), 
                                                  lstm_data['dates_test'])

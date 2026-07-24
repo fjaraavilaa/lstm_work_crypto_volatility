@@ -12,3 +12,14 @@ study = optuna.create_study(
     storage=storage_name,
     load_if_exists=True,
 )
+
+study.enqueue_trial(
+    {
+        "lstm_shape_lag": 5,
+        "lstm_hidden_size": 18,
+        "batch_size": 2100,
+        "num_layers": 2,
+        "inducing_points": 647,
+        "dropout": 0.3878821630867384
+    }
+)
