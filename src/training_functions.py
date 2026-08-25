@@ -92,6 +92,7 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
 
     model.train()
     best_val = float('inf')
+    counter = 0
     
     likelihood.train()
     logging.info("Starting GP training...")
@@ -103,6 +104,8 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
     mae_losses_val = []
     for epoch in range(epochs):
         batch_losses = []
+        model.train()
+        likelihood.train()
         for x_batch, y_batch in train_loader:
             #logging.info(f"Epoch {epoch + 1}/{epochs}, Batch Loss: {mll(model(x_batch), y_batch).item()}")
             #logging.info(f"Epoch {epoch + 1}/{epochs}, Input shape: {x_batch.shape}, Target shape: {y_batch.shape}")

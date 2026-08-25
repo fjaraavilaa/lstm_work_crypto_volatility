@@ -75,9 +75,9 @@ class DeepKernelSVGP(gpytorch.Module):
 
     def forward(self, x_seq) -> gpytorch.distributions.MultivariateNormal:
         output = self.feature_extractor(x_seq)
-        print(f"Features extracted by LSTM: {output.shape}")
+        #print(f"Features extracted by LSTM: {output.shape}")
         output = self.inferential_process(output)
-        print(f"Output from SVGP: {output.mean.shape}, {output.covariance_matrix.shape}")
+        #print(f"Output from SVGP: {output.mean.shape}, {output.covariance_matrix.shape}")
         return output
 
 

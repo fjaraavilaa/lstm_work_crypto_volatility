@@ -1,0 +1,1 @@
+{"lstm_shape_lag": 47, "lstm_hidden_size": 18, "batch_size": 2100, "num_layers": 2, "dropout": 0.3878821630867384, "inducing_points": 647}

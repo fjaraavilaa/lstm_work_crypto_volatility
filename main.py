@@ -48,7 +48,7 @@ def main():
                                                   start_date = DATES_START_STUDY, 
                                                   end_date = DATES_END_STUDY)
     preprocessor = DataPreprocessor()
-    processed_data = preprocessor.prepare_features(crypto_raw_data, drop_bad_values = False)
+    processed_data = preprocessor.prepare_features(crypto_raw_data, target_col = 'Returns', drop_bad_values = False)
     logging.info('Features Prepared')
 
     processed_data = preprocessor.scale_features(processed_data.set_index(['Date', 'Symbol'])[INPUT_STUDY_FEATURES].dropna(), 
@@ -57,7 +57,7 @@ def main():
     logging.info('Features Scaled')
 
     lstm_data = preprocessor.prepare_lstm_data(processed_data.reset_index(), symbols = SYMBOLS,
-                                               sequence_length = 5,
+                                               sequence_length = config_best_values['lstm_shape_lag'],
                                                target_col = 'Returns',
                                                prediction_horizon=1,
                                                date_splits =  {
@@ -68,7 +68,7 @@ def main():
                                                input_study_features = INPUT_STUDY_FEATURES
                                                )      
 
-    logging.info(f'lstm matrixes done. Check Dimensions: {lstm_data['X_train'].shape}')
+    logging.info(f'lstm matrixes done. Check Dimensions: {str(lstm_data["X_train"].shape)}')
 
 
     if parser.parse_args().model_location is None:
@@ -102,7 +102,7 @@ def main():
             {'params': compiled_model.inferential_process.hyperparameters()},
             {'params': compiled_model.inferential_process.variational_parameters()},
             {'params': likelihood.parameters()},], 
-            lr=0.01)
+            lr=0.001)
         
         if TRAIN_W_VALIDATION:
             logging.info("Training with validation set...")
@@ -122,14 +122,16 @@ def main():
                 epochs=10000,
                 likelihood=likelihood,
                 optimizer=optimizer,
-                min_delta=1e-5,
+                min_delta=1e-4,
                 patience=5,
                 monitor='val',
                 save_suffix = 'validation_stopping',
                 save_metrics=True
             )
             with torch.no_grad():
-                prediction_mean, prediction_variance = predict_with_trained_model(trained_model, likelihood, torch.from_numpy(lstm_data['X_val']).float())
+                prediction_mean, prediction_variance = predict_with_trained_model(trained_model, 
+                                                                                  likelihood, 
+                                                                                  torch.from_numpy(lstm_data['X_val']).float())
             
             predictions = create_df_from_predictions(prediction_mean.numpy(), 
                                                      prediction_variance.numpy(), 

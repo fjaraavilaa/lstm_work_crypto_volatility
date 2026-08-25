@@ -18,12 +18,18 @@ def predict_with_trained_model(model: Module, likelihood: Likelihood, X_test: to
     likelihood.eval()
 
     with torch.no_grad():
-        # Get the predictive distribution
-        predictive_dist = likelihood(model(X_test))
+        mean = []
+        variance = []
+        for batch in torch.utils.data.DataLoader(X_test):
+            # Get the predictive distribution
+            predictive_dist = likelihood(model(batch))
 
-        # Get the mean and variance of the predictions
-        mean = predictive_dist.mean
-        variance = predictive_dist.variance
+            # Get the mean and variance of the predictions
+            mean.append(predictive_dist.mean)
+            variance.append(predictive_dist.variance)
+
+    mean = torch.cat(mean)
+    variance = torch.cat(variance)
 
     return mean, variance
 
@@ -37,8 +43,8 @@ def create_df_from_predictions(mean, variance, indexing):
         indexing: The index for the DataFrame.
     """
     predictions_df = pd.DataFrame({
-        'mean': mean.numpy(),
-        'variance': variance.numpy()
+        'mean': mean,
+        'variance': variance
     }, index=indexing)
 
     return predictions_df

@@ -181,7 +181,7 @@ class BinanceDataCollector:
         else:
             binance_symbol = symbol
         
-        logging.info(f"Fetching {interval} data for {binance_symbol}...")
+        #logging.info(f"Fetching {interval} data for {binance_symbol}...")
         
         params = {
             'symbol': binance_symbol,
@@ -227,7 +227,7 @@ class BinanceDataCollector:
             df = df[['Date', 'Symbol', 'Open', 'High', 'Low', 'Close', 'Volume', 
                     'Quote_volume', 'Count', 'Taker_buy_volume', 'Taker_buy_quote_volume']]
             
-            logging.info(f"Fetched {len(df)} records for {symbol}")
+            #logging.info(f"Fetched {len(df)} records for {symbol}")
             return df
             
         except Exception as e:
@@ -261,8 +261,8 @@ class BinanceDataCollector:
         if start_date is not None:
             start_time = pd.to_datetime(start_date).to_pydatetime()
             end_time = pd.to_datetime(end_date).to_pydatetime() if end_date is not None else datetime.now()
-            logging.info(f"Fetching Binance data for {len(symbols)} symbols...")
-            logging.info(f"Interval: {interval}, Date range: {start_time.date()} to {end_time.date()}")
+            #logging.info(f"Fetching Binance data for {len(symbols)} symbols...")
+            #logging.info(f"Interval: {interval}, Date range: {start_time.date()} to {end_time.date()}")
         else:
             if days_back is None:
                 days_back = 365
@@ -506,7 +506,7 @@ def main():
     logging.info(f"Sample symbols: {available_symbols[:10]}")
     
     # Example 2: Fetch daily data
-    logging.info(f"\n2. Fetching daily data for {len(crypto_symbols)} cryptocurrencies...")
+    #logging.info(f"\n2. Fetching daily data for {len(crypto_symbols)} cryptocurrencies...")
     daily_data = collector.fetch_crypto_data(
         symbols=crypto_symbols,
         interval='1d',
