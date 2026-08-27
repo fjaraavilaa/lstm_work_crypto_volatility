@@ -22,6 +22,7 @@ from gpytorch.variational import (
     CholeskyVariationalDistribution,
     MultitaskVariationalStrategy,
     VariationalStrategy,
+    NaturalVariationalDistribution,
 )
 
 from src.mean_functions import LSTMMean_function
@@ -34,6 +35,7 @@ class LatentSVGP(ApproximateGP):
         base_kernel: Kernel,
         device: torch.device = torch.device("cpu"),
         learn_inducing_locations: bool = True,
+        use_natural_gradient: bool = True,
     ):
         """
         This is the inferential system that uses the features extracted from the lstm.
@@ -45,10 +47,16 @@ class LatentSVGP(ApproximateGP):
             device (torch.device, optional): _description_. Defaults to torch.device('cpu').
             learn_inducing_locations (bool, optional): Whether inducing points are learnable parameters.
             if not True, provide good inducing points.
+            use_natural_gradient (bool, optional): Whether to use natural gradient descent.
         """
-        variational_distribution = CholeskyVariationalDistribution(
-            inducing_points.size(0)
-        )
+        if use_natural_gradient:
+            variational_distribution = NaturalVariationalDistribution(
+                inducing_points.size(0)
+            )
+        else:
+            variational_distribution = CholeskyVariationalDistribution(
+                inducing_points.size(0)
+            )
         variational_strategy = VariationalStrategy(
             self,
             inducing_points,

@@ -1,4 +1,5 @@
 import logging
+from xml.parsers.expat import model
 
 import torch
 import torch.nn as nn
@@ -8,6 +9,8 @@ import torch.nn.functional as F
 from gpytorch.likelihoods import likelihood
 from gpytorch.mlls import VariationalELBO
 import json
+from gpytorch import optim
+import copy
 
 from src.gpytorch_model import DeepKernelSVGP, LatentSVGP
 
@@ -23,8 +26,8 @@ def compute_prediction_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     Returns:
         tuple: (mse, mae)
     """
-    y_true = y_true.detach().flatten().float()
-    y_pred = y_pred.detach().flatten().float()
+    y_true = y_true.detach().flatten().double()
+    y_pred = y_pred.detach().flatten().double()
  
     mse = F.mse_loss(y_pred, y_true).item()
     mae = F.l1_loss(y_pred, y_true).item()
@@ -56,8 +59,10 @@ def train_lstm_model(model: nn.Module, train_data_loader: DataLoader, val_data_l
 
 def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset, 
                   val_data: TensorDataset, batch_size: int, epochs: int,
-                  likelihood: likelihood, optimizer: optim.Optimizer,
-                  min_delta: float, patience: int, monitor: str = 'val',
+                  likelihood: likelihood, optimizer: torch.optim,
+                  natural_gradient_optimizer: optim = None,
+                  learning_scheduler: torch.optim.lr_scheduler = None,
+                  min_delta: float = 0.0, patience: int = 0, monitor: str = 'val',
                   save_suffix: str = '', save_metrics: bool = False, 
                   device: torch.device = torch.device('cpu')) -> LatentSVGP:
     """This funtions trains an SVGP model 
@@ -73,7 +78,9 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
         epochs (int): Epochs to run
         likelihood (likelihood): Likelihood from gpflow used.
         Usually it'll be gaussian
-        optimizer (optim.Optimizer): optimizer from pytorch
+        optimizer (torch.optim.Optimizer): optimizer from pytorch
+        natural_gradient_optimizer (gpytorch.optim.Optimizer): natural gradient optimizer from pytorch
+        learning_scheduler (torch.optim.lr_scheduler): learning rate scheduler from pytorch
         min_delta (float): minimum permitted difference
         patience (int): How many trials to permit
 
@@ -109,15 +116,21 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
         for x_batch, y_batch in train_loader:
             #logging.info(f"Epoch {epoch + 1}/{epochs}, Batch Loss: {mll(model(x_batch), y_batch).item()}")
             #logging.info(f"Epoch {epoch + 1}/{epochs}, Input shape: {x_batch.shape}, Target shape: {y_batch.shape}")
-            optimizer.zero_grad()
+            if natural_gradient_optimizer is not None:
+                natural_gradient_optimizer.zero_grad()
+            optimizer.zero_grad()        
             outputs = model(x_batch.to(device))
             loss = -mll(outputs, y_batch.to(device)).to(device)
             loss.backward()
+            if natural_gradient_optimizer is not None:
+                natural_gradient_optimizer.step()
             optimizer.step()
             batch_losses.append(loss.item())
         train_loss = sum(batch_losses) / len(batch_losses)
-        logging.info(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.4f}")
+        logging.info(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.6f}")
         train_losses.append(train_loss)
+        if learning_scheduler is not None:
+            learning_scheduler.step()
         model.eval()
         likelihood.eval()
         if val_loader is not None:
@@ -139,7 +152,7 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
             )
             mse_losses_val.append(mse_val_local)
             mae_losses_val.append(mae_val_local)
-            logging.info(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss.item():.4f}, MSE Train: {mse_train_local:.4f}, MAE Train: {mae_train_local:.4f}, MSE Val: {mse_val_local:.4f}, MAE Val: {mae_val_local:.4f}")
+            logging.info(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.6f}, Val Loss: {val_loss.item():.6f}, MSE Train: {mse_train_local:.6f}, MAE Train: {mae_train_local:.6f}, MSE Val: {mse_val_local:.6f}, MAE Val: {mae_val_local:.6f}")
 
         current_metric = val_loss if monitor == "val" else train_loss
  
@@ -154,9 +167,9 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
                 "mae_val": mae_val_local if val_loader is not None else None,
                 }
             best_state = {
-                "model": model.state_dict(),
-                "likelihood": likelihood.state_dict()
-            }
+                "model": copy.deepcopy(model.state_dict()),
+                "likelihood": copy.deepcopy(likelihood.state_dict()),
+                }
             counter = 0
         else:
             counter += 1
@@ -180,6 +193,9 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
     }
     with open(f"training_metrics_{save_suffix}.json", "w") as f:
         json.dump(metrics, f)
+
+    model.load_state_dict(best_state["model"])
+    likelihood.load_state_dict(best_state["likelihood"])
 
     return (model, likelihood, metrics, best_metrics)
 

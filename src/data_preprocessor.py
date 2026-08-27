@@ -56,14 +56,17 @@ class DataPreprocessor:
         if missing:
             raise ValueError(f"Missing OHLC columns: {missing}")
         
-        # Calculate returns
+        # Calculate simple and continuously compounded returns
         data['Returns'] = data.groupby('Symbol')['Close'].pct_change()
+        data['Log_Returns'] = data.groupby('Symbol')['Close'].transform(
+            lambda prices: np.log(prices).diff()
+        )
         
-        # Traditional volatility (rolling std of returns)
+        # Traditional volatility (rolling std of log returns)
         windows = [5, 10, 20, 30]
         for window in windows:
             data[f'Volatility_{window}d'] = (
-                data.groupby('Symbol')['Returns']
+                data.groupby('Symbol')['Log_Returns']
                 .rolling(window=window, min_periods=1)
                 .std()
                 .reset_index(level=0, drop=True)
@@ -192,8 +195,11 @@ class DataPreprocessor:
             warnings.warn("No OHLC data found, skipping volatility calculations")
             if 'Close' in data.columns:
                 data['Returns'] = data.groupby('Symbol')['Close'].pct_change()
+                data['Log_Returns'] = data.groupby('Symbol')['Close'].transform(
+                    lambda prices: np.log(prices).diff()
+                )
                 data['Volatility_20d'] = (
-                    data.groupby('Symbol')['Returns']
+                    data.groupby('Symbol')['Log_Returns']
                     .rolling(window=20, min_periods=1)
                     .std()
                     .reset_index(level=0, drop=True)
@@ -219,7 +225,7 @@ class DataPreprocessor:
         # Create lagged features
         logging.info("Creating lagged features...")
         lag_periods = [1, 2, 3, 5, 10]
-        key_cols = ['Close', 'Returns', target_col]
+        key_cols = ['Close', 'Returns', 'Log_Returns', target_col]
         
         # Add volume if available
         volume_cols = [col for col in data.columns if 'volume' in col.lower()]

@@ -1,6 +1,6 @@
 import logging
 import torch
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, MaternKernel
 from src.gpytorch_model import LatentSVGP, DeepKernelSVGP
 from src.binance_data_collector import BinanceDataCollector
 from src.data_preprocessor import DataPreprocessor
@@ -9,6 +9,7 @@ from src.training_functions import train_with_gp
 from src.help_functions.predictor import predict_with_trained_model, create_df_from_predictions
 import argparse
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch import optim
 import json
 
 logging.basicConfig(level=logging.INFO)
@@ -84,25 +85,38 @@ def main():
         inducing_points = torch.randn(config_best_values['inducing_points'], 
                                       lstm_data['X_train'].shape[1], 
                                       lstm_data['X_train'].shape[2])
-        base_kernel = RBFKernel()
+        base_kernel = MaternKernel(nu=2.5)
         inferential_model = LatentSVGP(
             inducing_points = feature_extractor(inducing_points.float()),
             base_kernel = base_kernel,
             device = torch.device(DEVICE),
-            learn_inducing_locations=True
+            learn_inducing_locations=True,
+            use_natural_gradient=True
             )
         compiled_model = DeepKernelSVGP(
             feature_extractor = feature_extractor,
             inferential_model = inferential_model,
             )
-        likelihood = GaussianLikelihood()    
+        likelihood = GaussianLikelihood()
+
+
+        natural_gradient_optimizer = optim.NGD(
+            compiled_model.inferential_process.variational_parameters(), 
+            num_data = lstm_data['X_train'].shape[0], 
+            lr = 0.01
+        )
 
         optimizer = torch.optim.Adam([
             {'params': compiled_model.feature_extractor.parameters()},
             {'params': compiled_model.inferential_process.hyperparameters()},
-            {'params': compiled_model.inferential_process.variational_parameters()},
             {'params': likelihood.parameters()},], 
             lr=0.001)
+
+        learning_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=20, 
+            eta_min=1e-10
+        )
         
         if TRAIN_W_VALIDATION:
             logging.info("Training with validation set...")
@@ -121,6 +135,8 @@ def main():
                 batch_size=config_best_values['batch_size'],
                 epochs=10000,
                 likelihood=likelihood,
+                natural_gradient_optimizer=natural_gradient_optimizer,
+                learning_scheduler=learning_scheduler,
                 optimizer=optimizer,
                 min_delta=1e-4,
                 patience=5,
@@ -152,7 +168,8 @@ def main():
                 batch_size=config_best_values['batch_size'],
                 epochs=10000,
                 likelihood=likelihood,
-                optimizer=optimizer,
+                natural_gradient_optimizer=natural_gradient_optimizer,
+                learning_scheduler=learning_scheduler,
                 min_delta=1e-5,
                 patience=5,
                 monitor='train',

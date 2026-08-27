@@ -9,13 +9,14 @@ from pathlib import Path
 import optuna
 import logging
 import torch
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, MaternKernel
 from src.gpytorch_model import LatentSVGP, DeepKernelSVGP
 from src.binance_data_collector import BinanceDataCollector
 from src.data_preprocessor import DataPreprocessor
 from src.deep_kernel import lstm_extractor_same_size_layers
 from src.training_functions import train_with_gp
 import argparse
+from gpytorch import optim
 from gpytorch.likelihoods import GaussianLikelihood
 
 with open('validation/healthy_dates.json', 'r') as f:
@@ -42,6 +43,9 @@ def objective(trial):
     batch_size = trial.suggest_int('batch_size', 16, 2500)
     num_layers = trial.suggest_int('num_layers', 1, 20)
     dropout_sug = trial.suggest_float('dropout', 0.0, 0.5)
+    natural_gradient_lr = trial.suggest_float('natural_gradient_lr', 0.01, 0.5)
+    starting_learning_rate = trial.suggest_float('starting_learning_rate', 0.0001, 0.1)
+    max_epochs_per_cycle = trial.suggest_int('max_epochs_per_cycle', 10, 1000)
 
     #start the data collector
     collector = BinanceDataCollector()
@@ -68,14 +72,14 @@ def objective(trial):
                                                input_study_features = INPUT_STUDY_FEATURES
                                                )
     
-    logging.info(f'LSTM matrix is of shape {lstm_data['X_train'].shape}')
+    print(f'LSTM matrix is of shape {str(lstm_data["X_train"].shape)}')
     
     del crypto_raw_data
     del processed_data
 
     inducing_points_n = trial.suggest_int('inducing_points', 50, 1000)
     inducing_points = torch.randn(inducing_points_n, lstm_data['X_train'].shape[1],
-                                  lstm_data['X_train'].shape[2])
+                                  lstm_data['X_train'].shape[2]).float()
 
     feature_extractor = lstm_extractor_same_size_layers(
         input_size = lstm_data['X_train'].shape[2],
@@ -83,8 +87,8 @@ def objective(trial):
         hidden_size = lstm_hidden_size,
         num_layers = num_layers,
         dropout = dropout_sug
-    )
-    base_kernel = RBFKernel()
+    ).float()
+    base_kernel = MaternKernel()
     inferential_model = LatentSVGP(
         inducing_points = feature_extractor(inducing_points.float()),
         base_kernel = base_kernel,
@@ -97,12 +101,23 @@ def objective(trial):
         )
     likelihood = GaussianLikelihood()
 
+    natural_gradient_optimizer = optim.NGD(
+        compiled_model.inferential_process.variational_parameters(), 
+        num_data = lstm_data['X_train'].shape[0], 
+        lr = natural_gradient_lr
+        )
+
     optimizer = torch.optim.Adam([
         {'params': compiled_model.feature_extractor.parameters()},
         {'params': compiled_model.inferential_process.hyperparameters()},
-        {'params': compiled_model.inferential_process.variational_parameters()},
         {'params': likelihood.parameters()},
-    ], lr=0.01)
+    ], lr=starting_learning_rate)
+
+    learning_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=max_epochs_per_cycle, 
+            eta_min=0.0
+        )
     
     train_data = torch.utils.data.TensorDataset(
         torch.from_numpy(lstm_data['X_train']).float(),
@@ -121,6 +136,8 @@ def objective(trial):
         epochs=10000,
         likelihood=likelihood,
         optimizer=optimizer,
+        natural_gradient_optimizer=natural_gradient_optimizer,
+        learning_scheduler=learning_scheduler,
         min_delta=1e-5,
         patience=5,
         monitor='val',
@@ -132,6 +149,6 @@ storage_name = "sqlite:///mydb_lstm_crypto_1min_w_lag.db"
 
 if __name__ == "__main__":
     study = optuna.load_study(
-        study_name="lstm_crypto_study_only_kernel", storage=storage_name
+        study_name="lstm_crypto_study_MaternKernel", storage=storage_name
     )
-    study.optimize(objective, n_trials=200)
+    study.optimize(objective, n_trials=40)

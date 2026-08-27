@@ -26,7 +26,7 @@ class lstm_extractor_same_size_layers(torch.nn.Module):
         self.lstm = torch.nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
         self.fc = torch.nn.Linear(hidden_size, output_size)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x):
         """Forward pass through the LSTM feature extractor. Returns the last hidden state of the last LSTM layer.
         """
         output, (h_n, c_n) = self.lstm(x)
