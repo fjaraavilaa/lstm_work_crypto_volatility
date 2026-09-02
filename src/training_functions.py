@@ -34,28 +34,103 @@ def compute_prediction_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
  
     return mse, mae
 
-def train_lstm_model(model: nn.Module, train_data_loader: DataLoader, val_data_loader: DataLoader, epochs: int, lr: float):
+def train_lstm_model(model: nn.Module, optimizing_criterion: nn.Module, 
+                     train_data: TensorDataset, 
+                     val_data: TensorDataset, epochs: int, optimizer: torch.optim.Optimizer,
+                     patience: int = 5, min_delta: float = 1e-5, batch_size: int = 32,
+                     optimizer_metric: str = 'mse', give_model_metrics: bool = False):
 
-    #train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
-    #val_loader = DataLoader(val_data, batch_size=32, shuffle=False)
+    """Train an LSTM model with early stopping based on validation loss.
+    
+    Args:
+        model (nn.Module): The LSTM model to be trained.
+        optimizing_criterion (nn.Module): The loss function to optimize.
+        train_data_loader (DataLoader): DataLoader for the training data.
+        val_data_loader (DataLoader): DataLoader for the validation data.
+        epochs (int): The number of epochs to train for.
+        optimizer (torch.optim.Optimizer): The optimizer to use for training.
+        patience (int): The number of epochs to wait before stopping early.
+        min_delta (float): The minimum change in the validation loss to qualify as an improvement.
+        optimizer_metric (str): The metric to use for early stopping ('mse' or 'mae').
 
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    Returns:
+        nn.Module: The trained model.
+    """
+    train_data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    val_data_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
+    mae_losses = []
+    mse_losses = []
+    mse_losses_val = []
+    mae_losses_val = []
+
+    best_val = float('inf')
+    counter = 0
 
     for epoch in range(epochs):
         model.train()
         for inputs, targets in train_data_loader:
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            loss = optimizing_criterion(outputs, targets)
             loss.backward()
             optimizer.step()
+        
+
 
         model.eval()
         with torch.no_grad():
-            val_loss = sum(criterion(model(inputs), targets) for inputs, targets in val_data_loader) / len(val_data_loader)
-        print(f"Epoch {epoch + 1}/{epochs}, Validation Loss: {val_loss.item()}")
-    return model
+            mse_train_local, mae_train_local = compute_prediction_metrics(
+                torch.cat([y for _, y in train_data_loader]), 
+                torch.cat([model(x) for x, _ in train_data_loader])
+            )
+            mse_losses.append(mse_train_local)
+            mae_losses.append(mae_train_local)
+            val_mse, val_mae = compute_prediction_metrics(
+                torch.cat([y for _, y in val_data_loader]), 
+                torch.cat([model(x) for x, _ in val_data_loader])
+            )
+
+        print(torch.cat([model(x) for x, _ in val_data_loader]))
+        print(torch.cat([y for _, y in val_data_loader]))
+        if optimizer_metric == 'mse':
+            val_loss = val_mse
+        elif optimizer_metric == 'mae':
+            val_loss = val_mae
+        else:
+            raise ValueError(f"Invalid optimizer_metric: {optimizer_metric}. Must be 'mse' or 'mae'.")
+        print(f"Epoch {epoch + 1}/{epochs}, Validation Loss: {val_loss:.6f}, MSE: {val_mse:.6f}, MAE: {val_mae:.6f}")
+        mse_losses_val.append(val_mse)
+        mae_losses_val.append(val_mae)
+        if val_loss <= best_val - min_delta:
+            best_val = val_loss
+            best_state = copy.deepcopy(model.state_dict())
+            counter = 0
+            best_metrics = {
+                "epoch": epoch,
+                "best_val_loss": best_val,
+                "mse_train": mse_train_local,
+                "mae_train": mae_train_local,
+                "mse_val": val_mse,
+                "mae_val": val_mae
+            }
+        else:
+            counter += 1
+            if counter >= patience:
+                print(f"Early stopping at epoch {epoch + 1}")
+                model.load_state_dict(best_state)
+                break
+    if give_model_metrics:
+        metrics = {
+            "mse_losses_train": mse_losses,
+            "mae_losses_train": mae_losses,
+            "mse_losses_val": mse_losses_val,
+            "mae_losses_val": mae_losses_val
+        }
+        return model, metrics, best_metrics
+    else:
+        return model
+
+
 
 def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset, 
                   val_data: TensorDataset, batch_size: int, epochs: int,
@@ -191,8 +266,6 @@ def train_with_gp(model: DeepKernelSVGP, train_data: TensorDataset,
         "mse_losses_val": mse_losses_val,
         "mae_losses_val": mae_losses_val
     }
-    with open(f"training_metrics_{save_suffix}.json", "w") as f:
-        json.dump(metrics, f)
 
     model.load_state_dict(best_state["model"])
     likelihood.load_state_dict(best_state["likelihood"])

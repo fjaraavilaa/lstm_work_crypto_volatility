@@ -287,6 +287,12 @@ class BinanceDataCollector:
                         current_end = min(current_start + timedelta(hours=limit_per_request), end_time)
                     elif interval == '1m':
                         current_end = min(current_start + timedelta(minutes=limit_per_request), end_time)
+                    elif interval == '5m':
+                        current_end = min(current_start + timedelta(minutes=5*limit_per_request), end_time)
+                    elif interval == '15m':
+                        current_end = min(current_start + timedelta(minutes=15*limit_per_request), end_time)
+                    elif interval == '30m':
+                        current_end = min(current_start + timedelta(minutes=30*limit_per_request), end_time)
                     else:
                         current_end = end_time  # For other intervals, fetch in one go
                     

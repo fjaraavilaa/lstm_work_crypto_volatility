@@ -9,7 +9,7 @@ from pathlib import Path
 import optuna
 import logging
 import torch
-from gpytorch.kernels import RBFKernel, MaternKernel
+from gpytorch.kernels import RBFKernel, MaternKernel, PeriodicKernel
 from src.gpytorch_model import LatentSVGP, DeepKernelSVGP
 from src.binance_data_collector import BinanceDataCollector
 from src.data_preprocessor import DataPreprocessor
@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(
     description = "hard-coded arguments for the lstm hyper-parameter search"
 )
 parser.add_argument('--symbols', nargs='+', default=['BTC-USD'], help='List of symbols to fetch data for')
-parser.add_argument('--input_study_features', nargs='+', default=['Returns'], help='List of features to use in the study')
+parser.add_argument('--input_study_features', nargs='+', default=['Log_Returns'], help='List of features to use in the study')
 parser.add_argument('--device' , type=str, default='cuda', help='Device to use for training (e.g., "cuda" or "cpu")')
 
 DATES_START_STUDY = config_dates['train']['start']
@@ -49,20 +49,21 @@ def objective(trial):
 
     #start the data collector
     collector = BinanceDataCollector()
-    interval = '1m'
+    interval = '5m'
     crypto_raw_data = collector.fetch_crypto_data(symbols = SYMBOLS, 
                                                   interval = interval, 
                                                   start_date = DATES_START_STUDY, 
                                                   end_date = DATES_END_STUDY)
+    print(f"Fetching data for symbols: {SYMBOLS} from {DATES_START_STUDY} to {DATES_END_STUDY} with frequency {interval}")
     preprocessor = DataPreprocessor()
-    processed_data = preprocessor.prepare_features(crypto_raw_data, target_col='Returns', drop_bad_values = False)
+    processed_data = preprocessor.prepare_features(crypto_raw_data, target_col='Log_Returns', drop_bad_values = False)
 
     processed_data = preprocessor.scale_features(processed_data.set_index(['Date', 'Symbol'])[INPUT_STUDY_FEATURES].dropna(), 
                                                  scaler = 'minmax')
     # Build training and validation splits here from the API-fetched dataframe.
     lstm_data = preprocessor.prepare_lstm_data(processed_data.reset_index(), symbols = SYMBOLS,
                                                sequence_length = lstm_shape_lag,
-                                               target_col = 'Returns',
+                                               target_col = 'Log_Returns',
                                                prediction_horizon=1,
                                                date_splits =  {
                                                    'train': config_dates['train'],
@@ -88,7 +89,7 @@ def objective(trial):
         num_layers = num_layers,
         dropout = dropout_sug
     ).float()
-    base_kernel = MaternKernel()
+    base_kernel = MaternKernel() + PeriodicKernel()
     inferential_model = LatentSVGP(
         inducing_points = feature_extractor(inducing_points.float()),
         base_kernel = base_kernel,
@@ -145,10 +146,10 @@ def objective(trial):
     )
     return best_metrics['mae_val'] # Return the validation loss for Optuna to minimize
 
-storage_name = "sqlite:///mydb_lstm_crypto_1min_w_lag.db"
+storage_name = "sqlite:///mydb_lstm_crypto_5min_w_lag.db"
 
 if __name__ == "__main__":
     study = optuna.load_study(
-        study_name="lstm_crypto_study_MaternKernel", storage=storage_name
+        study_name="lstm_crypto_study_PeriodicMaternKernel", storage=storage_name
     )
     study.optimize(objective, n_trials=40)

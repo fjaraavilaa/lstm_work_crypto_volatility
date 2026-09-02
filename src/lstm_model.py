@@ -20,11 +20,12 @@ class LSTMGeneralized_Output_SameSize(nn.Module):
             batch_first=True,
         )
         self.fc = nn.Linear(hidden_size, output_size)
+        #self.output_activation = nn.Sigmoid()
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
         out = self.fc(lstm_out[:, -1, :])
-        return out
+        return out.squeeze(1) # Ensure output shape is (batch_size, 1, output_size)
 
 
 class LSTMGeneralized_Output_DifferentSize(nn.Module):

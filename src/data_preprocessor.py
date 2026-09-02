@@ -9,7 +9,7 @@ author: @fjaraavila
 
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from sklearn.model_selection import train_test_split
 from typing import Tuple, List, Optional, Dict
 import warnings
@@ -352,6 +352,11 @@ class DataPreprocessor:
         elif scaler == 'standardization':
             self.scaler_used = StandardScaler().set_output(transform='pandas')
             returned_df = self.scaler_used.fit_transform(df[numeric_features])
+        elif scaler == 'robust':
+            self.scaler_used = RobustScaler().set_output(transform='pandas')
+            returned_df = self.scaler_used.fit_transform(df[numeric_features])
+        else:
+            raise ValueError(f"Unknown scaler type: {scaler}. Choose from 'minmax', 'standardization', or 'robust'.")
         return returned_df
 
     def prepare_lstm_data(
